@@ -90,7 +90,10 @@ public partial class MainWindow : Window
         _toolbar = new ToolbarWindow
         {
             Left = _settings.ToolbarLeft,
-            Top = _settings.ToolbarTop
+            Top = _settings.ToolbarTop,
+            // 오버레이가 전체 화면 입력을 잡으므로, 툴바를 오버레이의 소유(owned) 창으로 둬서
+            // 항상 오버레이 위에 떠 클릭 가능하게 한다(그리기 모드에서도 툴바 조작 가능).
+            Owner = this
         };
         _toolbar.ToolSelected += SetTool;
         _toolbar.ColorSelected += SetColor;

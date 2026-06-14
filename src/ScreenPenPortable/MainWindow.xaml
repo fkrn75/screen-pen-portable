@@ -15,7 +15,11 @@
         WindowStartupLocation="Manual"
         KeyDown="OnKeyDown">
     <Grid>
-        <!-- 단일 가상화면 오버레이 그리기 표면 (Transparent 라야 빈 영역에서도 입력 수신) -->
-        <InkCanvas x:Name="InkSurface" Background="Transparent"/>
+        <!-- 단일 가상화면 오버레이 그리기 표면.
+             ★ 배경 alpha는 0이면 안 된다: 완전 투명(alpha=0) 픽셀 위에서는 OS가 레이어드 창을
+             건너뛰어(Raw Input Thread skip) 마우스 입력이 아래 앱으로 통과 → 그림이 안 그려진다.
+             #01000000(alpha 1/255, 사실상 비가시)로 두면 입력을 포착하면서도 화면엔 안 보인다.
+             통과 모드에서는 WS_EX_TRANSPARENT로 강제 통과하므로 영향 없음. -->
+        <InkCanvas x:Name="InkSurface" Background="#01000000"/>
     </Grid>
 </Window>
