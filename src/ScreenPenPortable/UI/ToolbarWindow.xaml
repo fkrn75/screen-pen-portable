@@ -78,6 +78,22 @@
 
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
 
+            <!-- ── 드래그 핸들: 이 영역을 잡고 툴바를 이동(모니터 간 이동 가능) ── -->
+            <Border x:Name="DragHandle"
+                    Width="20" Height="34"
+                    Background="#2EFFFFFF"
+                    CornerRadius="5"
+                    Margin="0,0,4,0"
+                    Cursor="SizeAll"
+                    ToolTip="여기를 잡고 드래그하여 툴바 이동 (모니터 간 이동 가능)"
+                    MouseLeftButtonDown="OnDragArea_MouseLeftButtonDown">
+                <TextBlock Text="&#x28FF;" Foreground="{StaticResource Ink}"
+                           FontSize="15" Opacity="0.85"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+
+            <Border Style="{StaticResource Sep}"/>
+
             <!-- ── 잉크 도구: 펜 / 하이라이터 / 지우개 ─────────────── -->
             <Button x:Name="PenButton" Style="{StaticResource ToolButton}"
                     Content="&#x270E;" ToolTip="펜 (Ctrl+Alt+1)" Click="OnPenClick"/>

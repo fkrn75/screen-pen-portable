@@ -53,8 +53,12 @@ public partial class ToolbarWindow : Window
     {
         // 마우스를 누른 채 시작하면 창을 끌어 이동. 버튼/슬라이더 위에서 누른
         // 경우는 해당 컨트롤이 이벤트를 먼저 처리하므로 여기로 버블링되지 않는다.
+        // 전용 드래그 핸들(DragHandle)과 바깥 Border 가 같은 핸들러를 공유하므로,
+        // e.Handled 로 부모(바깥 Border)에서 DragMove 가 한 번 더 호출되는 것을 막는다
+        // (해제된 버튼으로 DragMove 재호출 시 예외 방지).
         if (e.ButtonState == MouseButtonState.Pressed)
         {
+            e.Handled = true;
             DragMove();
         }
     }
