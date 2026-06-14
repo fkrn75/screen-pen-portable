@@ -42,6 +42,7 @@ public partial class ToolbarWindow : Window
     public event Action? MagnifierToggleRequested;   // FR-24 돋보기
     public event Action? FadeToggleRequested;        // FR-20 페이딩 잉크
     public event Action? HaloToggleRequested;        // FR-21 하이라이트 커서
+    public event Action? HaloSettingsRequested;      // 헤일로 색·크기 설정(우클릭)
     public event Action? TimerToggleRequested;       // 타이머(카운트다운)
 
     public ToolbarWindow()
@@ -103,6 +104,11 @@ public partial class ToolbarWindow : Window
     private void OnMagnifierClick(object sender, RoutedEventArgs e) => MagnifierToggleRequested?.Invoke();
     private void OnFadeClick(object sender, RoutedEventArgs e) => FadeToggleRequested?.Invoke();
     private void OnHaloClick(object sender, RoutedEventArgs e) => HaloToggleRequested?.Invoke();
+    private void OnHaloRightClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        HaloSettingsRequested?.Invoke();
+    }
     private void OnTimerClick(object sender, RoutedEventArgs e) => TimerToggleRequested?.Invoke();
 
     private void OnExitClick(object sender, RoutedEventArgs e) => ExitRequested?.Invoke();

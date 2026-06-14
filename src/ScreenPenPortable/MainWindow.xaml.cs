@@ -59,6 +59,7 @@ public partial class MainWindow : Window
     private FadingInkService? _fade;
     private MagnifierWindow? _magnifier;
     private TimerWindow? _timerWin;
+    private HaloSettingsWindow? _haloSettings;
     private ToolbarWindow? _toolbar;
     private TrayService? _tray;
 
@@ -134,6 +135,7 @@ public partial class MainWindow : Window
         _toolbar.MagnifierToggleRequested += ToggleMagnifier;
         _toolbar.FadeToggleRequested += ToggleFade;
         _toolbar.HaloToggleRequested += ToggleHalo;
+        _toolbar.HaloSettingsRequested += OpenHaloSettings;
         _toolbar.TimerToggleRequested += ToggleTimer;
 
         _toolbar.SetQuickColors(_settings.QuickColors);
@@ -464,6 +466,46 @@ public partial class MainWindow : Window
         _toolbar?.SetHaloActive(_halo.IsEnabled);
     }
 
+    /// <summary>헤일로 색·크기 설정 팝업(헤일로 버튼 우클릭). 변경은 실시간 반영·영속화.</summary>
+    private void OpenHaloSettings()
+    {
+        if (_halo == null) return;
+
+        // 미리보기를 위해 헤일로를 켠다(꺼져 있었다면).
+        if (!_halo.IsEnabled)
+        {
+            _halo.Enable(ParseColor(_settings.HighlightCursorColor), _settings.HighlightCursorRadius);
+            _settings.HighlightCursorEnabled = true;
+            _toolbar?.SetHaloActive(true);
+        }
+
+        if (_haloSettings == null)
+        {
+            _haloSettings = new HaloSettingsWindow { Owner = this };
+            _haloSettings.ColorPicked += c =>
+            {
+                _settings.HighlightCursorColor = c.ToString();
+                _halo!.Enable(c, _settings.HighlightCursorRadius); // 실시간 갱신
+            };
+            _haloSettings.SizePicked += r =>
+            {
+                _settings.HighlightCursorRadius = r;
+                _halo!.Enable(ParseColor(_settings.HighlightCursorColor), r);
+            };
+        }
+
+        _haloSettings.SetInitial(ParseColor(_settings.HighlightCursorColor), _settings.HighlightCursorRadius);
+
+        // 툴바 근처에 띄운다.
+        if (_toolbar != null)
+        {
+            _haloSettings.Left = _toolbar.Left + _toolbar.ActualWidth + 8;
+            _haloSettings.Top = _toolbar.Top;
+        }
+        _haloSettings.Show();
+        _haloSettings.Activate();
+    }
+
     // ── 핫키 ───────────────────────────────────────────────
     private void RegisterHotkeys()
     {
@@ -554,6 +596,7 @@ public partial class MainWindow : Window
         _halo?.Disable();
         _magnifier?.Close();
         _timerWin?.Close();
+        _haloSettings?.Close();
         _tray?.Dispose();
         _toolbar?.Close();
     }
