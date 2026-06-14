@@ -5,6 +5,18 @@
 > 상세 기능 정의는 [기능명세서.md](기능명세서.md) 참고. (Epic Pen 공식 문서 딥리서치 기반, 검증 22건)
 > 📖 **사용 설명서(스크린샷 포함): [docs/manual.html](docs/manual.html)** — 브라우저로 열면 됩니다.
 
+## 📥 다운로드
+
+최신 실행파일과 설명서는 **[Releases](https://github.com/fkrn75/screen-pen-portable/releases/latest)** 에서 받으세요.
+
+| 파일 | 크기 | 조건 |
+|---|---|---|
+| `ScreenPenPortable.exe` | ~71 MB | .NET 불필요 — **아무 PC·USB에서 바로 실행** |
+| `ScreenPenPortable-min-requires-dotnet9.exe` | ~1.6 MB | 대상 PC에 **[.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0)** 필요(1회) |
+| `manual.html` | ~76 KB | 스크린샷 포함 사용 설명서(단일 파일) |
+
+> 처음 실행 시 SmartScreen 경고가 뜨면 **"추가 정보 → 실행"**. Windows 10(1809+)/11 x64.
+
 ## 현재 상태: M3까지 구현 완료 (기능명세서 FR-01~24 전체)
 
 투명 오버레이·클릭관통(M0)부터 Epic Pen Pro 핵심(M2)·차별화 기능(M3)까지 명세서의 모든 기능을 구현했습니다.
