@@ -181,6 +181,8 @@
                         Content="&#x1F32B;" ToolTip="페이딩 잉크: 그린 뒤 자동 사라짐 (Ctrl+Alt+F)" Click="OnFadeClick"/>
                 <Button x:Name="HaloButton" Style="{StaticResource ToolButton}"
                         Content="&#x25CE;" ToolTip="하이라이트 커서(헤일로) (Ctrl+Alt+H)" Click="OnHaloClick"/>
+                <Button x:Name="TimerButton" Style="{StaticResource ToolButton}"
+                        Content="&#x23F1;" ToolTip="타이머: 화면 중앙 카운트다운 (Ctrl+Alt+C)" Click="OnTimerClick"/>
             </WrapPanel>
 
             <Border Style="{StaticResource HSep}"/>

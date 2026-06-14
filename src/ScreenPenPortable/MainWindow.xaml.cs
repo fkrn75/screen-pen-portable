@@ -41,7 +41,7 @@ public partial class MainWindow : Window
     private enum Hk
     {
         Toggle = 1, Pen, Highlighter, Eraser, Undo, Redo, Clear, Screenshot, Toolbar, Exit,
-        Whiteboard, Ghost, Magnifier, Fade, Halo
+        Whiteboard, Ghost, Magnifier, Fade, Halo, Timer
     }
 
     private IntPtr _hwnd;
@@ -58,6 +58,7 @@ public partial class MainWindow : Window
     private HighlightCursor? _halo;
     private FadingInkService? _fade;
     private MagnifierWindow? _magnifier;
+    private TimerWindow? _timerWin;
     private ToolbarWindow? _toolbar;
     private TrayService? _tray;
 
@@ -133,6 +134,7 @@ public partial class MainWindow : Window
         _toolbar.MagnifierToggleRequested += ToggleMagnifier;
         _toolbar.FadeToggleRequested += ToggleFade;
         _toolbar.HaloToggleRequested += ToggleHalo;
+        _toolbar.TimerToggleRequested += ToggleTimer;
 
         _toolbar.SetQuickColors(_settings.QuickColors);
         _toolbar.Show();
@@ -427,6 +429,21 @@ public partial class MainWindow : Window
         _toolbar?.SetMagnifierActive(_magnifier.IsVisible);
     }
 
+    // ── 타이머(화면 중앙 카운트다운) ──────────────────────
+    private void ToggleTimer()
+    {
+        if (_timerWin == null)
+        {
+            _timerWin = new TimerWindow { Owner = this };
+            _timerWin.SetFontSize(_settings.TimerFontSize);
+            _timerWin.SetDuration(_settings.TimerDurationSeconds);
+            // 사용자가 ✕(닫기)로 숨겨도 툴바 강조가 동기화되도록.
+            _timerWin.IsVisibleChanged += (_, _) => _toolbar?.SetTimerActive(_timerWin!.IsVisible);
+        }
+        _timerWin.Toggle();
+        _toolbar?.SetTimerActive(_timerWin.IsVisible);
+    }
+
     // ── 페이딩 잉크(FR-20) ─────────────────────────────────
     private void ToggleFade()
     {
@@ -468,6 +485,7 @@ public partial class MainWindow : Window
         Reg(Hk.Magnifier, Key.M);
         Reg(Hk.Fade, Key.F);
         Reg(Hk.Halo, Key.H);
+        Reg(Hk.Timer, Key.C);
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -491,6 +509,7 @@ public partial class MainWindow : Window
             case Hk.Magnifier: ToggleMagnifier(); break;
             case Hk.Fade: ToggleFade(); break;
             case Hk.Halo: ToggleHalo(); break;
+            case Hk.Timer: ToggleTimer(); break;
             default: handled = false; break;
         }
         return IntPtr.Zero;
@@ -519,6 +538,11 @@ public partial class MainWindow : Window
             _settings.ToolbarLeft = _toolbar.Left;
             _settings.ToolbarTop = _toolbar.Top;
         }
+        if (_timerWin != null)
+        {
+            _settings.TimerDurationSeconds = _timerWin.DurationSeconds;
+            _settings.TimerFontSize = _timerWin.FontSizeValue;
+        }
         SettingsStore.Save(_settings);
 
         SystemEvents.DisplaySettingsChanged -= OnDisplayChanged;
@@ -529,6 +553,7 @@ public partial class MainWindow : Window
         _fade?.Disable();
         _halo?.Disable();
         _magnifier?.Close();
+        _timerWin?.Close();
         _tray?.Dispose();
         _toolbar?.Close();
     }

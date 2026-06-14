@@ -42,6 +42,7 @@ public partial class ToolbarWindow : Window
     public event Action? MagnifierToggleRequested;   // FR-24 돋보기
     public event Action? FadeToggleRequested;        // FR-20 페이딩 잉크
     public event Action? HaloToggleRequested;        // FR-21 하이라이트 커서
+    public event Action? TimerToggleRequested;       // 타이머(카운트다운)
 
     public ToolbarWindow()
     {
@@ -102,6 +103,7 @@ public partial class ToolbarWindow : Window
     private void OnMagnifierClick(object sender, RoutedEventArgs e) => MagnifierToggleRequested?.Invoke();
     private void OnFadeClick(object sender, RoutedEventArgs e) => FadeToggleRequested?.Invoke();
     private void OnHaloClick(object sender, RoutedEventArgs e) => HaloToggleRequested?.Invoke();
+    private void OnTimerClick(object sender, RoutedEventArgs e) => TimerToggleRequested?.Invoke();
 
     private void OnExitClick(object sender, RoutedEventArgs e) => ExitRequested?.Invoke();
 
@@ -209,6 +211,7 @@ public partial class ToolbarWindow : Window
     public void SetMagnifierActive(bool on) => MagnifierButton.Background = on ? ActiveBrush : IdleBrush;
     public void SetFadeActive(bool on) => FadeButton.Background = on ? ActiveBrush : IdleBrush;
     public void SetHaloActive(bool on) => HaloButton.Background = on ? ActiveBrush : IdleBrush;
+    public void SetTimerActive(bool on) => TimerButton.Background = on ? ActiveBrush : IdleBrush;
 
     /// <summary>현재 도형 채움 상태를 글리프로 표시(없음/컬러/외곽선/흰/검).</summary>
     public void SetFillMode(FillMode mode)

@@ -99,4 +99,10 @@ public class AppSettings
     // ── FR-24 돋보기 / 줌 ──────────────────────────────────────
     public double MagnifierZoom { get; set; } = 2.0;
     public int MagnifierSize { get; set; } = 320;
+
+    // ── 타이머(카운트다운) ─────────────────────────────────────
+    /// <summary>타이머 설정 시간(초). 기본 5분.</summary>
+    public int TimerDurationSeconds { get; set; } = 300;
+    /// <summary>타이머 숫자 글자 크기(사용자 지정).</summary>
+    public double TimerFontSize { get; set; } = 140;
 }
