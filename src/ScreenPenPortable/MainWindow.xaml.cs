@@ -47,6 +47,7 @@ public partial class MainWindow : Window
     private IntPtr _hwnd;
     private bool _passThrough;
     private bool _ghost;
+    private readonly List<string> _hotkeyFailures = new(); // 등록 실패한 핫키(타앱 점유)
     private AppSettings _settings = new();
     private ToolKind _tool = ToolKind.Pen;
 
@@ -161,6 +162,10 @@ public partial class MainWindow : Window
             _halo.Enable(ParseColor(_settings.HighlightCursorColor), _settings.HighlightCursorRadius);
             _toolbar.SetHaloActive(true);
         }
+
+        // 일부 전역 단축키가 다른 앱에 점유되어 등록 실패했으면 트레이로 알린다.
+        if (_hotkeyFailures.Count > 0)
+            _tray.SetModeText($"일부 단축키 등록 실패(다른 앱 점유): {string.Join(", ", _hotkeyFailures)}");
     }
 
     // ── 도구별 색상·굵기 기억(FR-18) ───────────────────────
@@ -258,10 +263,16 @@ public partial class MainWindow : Window
 
     private void SetTool(ToolKind t)
     {
+        // 도구를 바꾸기 전 진행 중이던 텍스트는 확정하고 도형 드래그는 취소한다.
+        _objects?.EndActiveTextEditing(true);
+        _objects?.CancelActiveDrag();
+
         _tool = t;
         _settings.LastTool = t;
         ApplyTool();
         _toolbar?.SetActiveTool(t);
+        // 텍스트 도구는 굵기 슬라이더를 폰트 크기(8~200)로, 그 외 도구는 1~40 으로.
+        _toolbar?.SetThicknessRange(t == ToolKind.Text ? 8 : 1, t == ToolKind.Text ? 200 : 40);
         _toolbar?.SetThickness(GetToolWidth(t));
     }
 
@@ -305,13 +316,20 @@ public partial class MainWindow : Window
     {
         if (_strokeUndo == null) return;
 
+        // 진행 중인 텍스트 편집은 취소, 도형 드래그는 취소(지운 화면에 부활·미리보기 잔류 방지).
+        _objects?.EndActiveTextEditing(false);
+        _objects?.CancelActiveDrag();
+
         var strokes = new StrokeCollection(InkSurface.Strokes);
         var children = InkSurface.Children.Cast<UIElement>().ToList();
         if (strokes.Count == 0 && children.Count == 0) return;
 
+        int prevNext = _objects?.NextNumber ?? 1; // 번호 카운터를 undo로 복원하기 위해 저장
+
         // 지금 비운다(스트로크는 히스토리 억제로 직접 제거).
         _strokeUndo.ClearStrokesWithoutHistory();
         InkSurface.Children.Clear();
+        _objects?.ResetNumbering(); // 전체지우기 후 번호는 1부터
 
         // Undo/Redo 는 _undo.IsApplying=true 상태에서 실행되므로
         // 내부의 스트로크 add/clear 가 UndoRedoManager 에 다시 기록되지 않는다.
@@ -322,11 +340,13 @@ public partial class MainWindow : Window
                 foreach (UIElement c in children)
                     if (!InkSurface.Children.Contains(c))
                         InkSurface.Children.Add(c);
+                if (_objects != null) _objects.NextNumber = prevNext;
             },
             redo: () =>
             {
                 InkSurface.Strokes.Clear();
                 InkSurface.Children.Clear();
+                _objects?.ResetNumbering();
             });
     }
 
@@ -360,6 +380,7 @@ public partial class MainWindow : Window
     // ── 그리기/통과 토글 ───────────────────────────────────
     private void TogglePassThrough()
     {
+        _objects?.CancelActiveDrag(); // 통과 전환 시 진행 중 도형 드래그 정리
         _passThrough = !_passThrough;
         int ex = GetWindowLong(_hwnd, GWL_EXSTYLE);
         ex = _passThrough ? (ex | WS_EX_TRANSPARENT) : (ex & ~WS_EX_TRANSPARENT);
@@ -389,7 +410,9 @@ public partial class MainWindow : Window
     private void ToggleWhiteboard()
     {
         if (_whiteboard == null) return;
-        ApplyWhiteboardTarget();
+        // 보드를 새로 켤 때(Off→표시)만 대상 모니터 영역을 설정(매 토글 재계산·풀스크린 리셋 방지).
+        if (_whiteboard.Mode == WhiteboardController.BoardMode.Off)
+            ApplyWhiteboardTarget();
         var mode = _whiteboard.Cycle(
             ParseColor(_settings.WhiteboardColor),
             ParseColor(_settings.BlackboardColor));
@@ -510,7 +533,12 @@ public partial class MainWindow : Window
     private void RegisterHotkeys()
     {
         uint cm = MOD_CONTROL | MOD_ALT | MOD_NOREPEAT;
-        void Reg(Hk id, Key k) => RegisterHotKey(_hwnd, (int)id, cm, (uint)KeyInterop.VirtualKeyFromKey(k));
+        void Reg(Hk id, Key k)
+        {
+            // 등록 실패(타앱이 같은 핫키 점유)는 조용히 넘기지 말고 수집 → 트레이로 알림.
+            if (!RegisterHotKey(_hwnd, (int)id, cm, (uint)KeyInterop.VirtualKeyFromKey(k)))
+                _hotkeyFailures.Add(id.ToString());
+        }
 
         Reg(Hk.Toggle, Key.D);
         Reg(Hk.Pen, Key.D1);
@@ -559,15 +587,21 @@ public partial class MainWindow : Window
 
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
-        // 그리기 모드(포커스 보유 시)에서의 보조 키.
-        // 텍스트 입력 중(TextBox 포커스)에는 가로채지 않는다.
+        // 텍스트 입력 중(TextBox 포커스)에는 가로채지 않는다(텍스트의 Esc는 ObjectLayer가 처리).
         if (Keyboard.FocusedElement is TextBox)
             return;
 
         switch (e.Key)
         {
-            case Key.Escape: Close(); break;
-            case Key.Delete: ClearAllAnnotations(); break;
+            case Key.Escape:
+                // Esc 는 진행 중인 도형 드래그/텍스트만 취소한다.
+                // (실수로 앱이 종료되지 않도록 — 종료는 Ctrl+Alt+Q · 트레이 · 툴바 ✕.)
+                _objects?.CancelActiveDrag();
+                _objects?.EndActiveTextEditing(false);
+                break;
+            case Key.Delete:
+                ClearAllAnnotations();
+                break;
         }
     }
 

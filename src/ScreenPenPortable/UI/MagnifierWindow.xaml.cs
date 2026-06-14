@@ -49,6 +49,13 @@ public partial class MagnifierWindow : Window
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool DeleteObject(IntPtr hObject);
 
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int nIndex);
+
+    // 가상 화면(모든 모니터 경계) 메트릭.
+    private const int SM_XVIRTUALSCREEN = 76, SM_YVIRTUALSCREEN = 77,
+                      SM_CXVIRTUALSCREEN = 78, SM_CYVIRTUALSCREEN = 79;
+
     /// <summary>창과 커서 사이 오프셋(물리 px). 소스 영역과 창이 겹치지 않게 한다.</summary>
     private const int CursorOffsetPx = 28;
 
@@ -133,6 +140,14 @@ public partial class MagnifierWindow : Window
         int srcSize = Math.Max(1, (int)Math.Round(_viewSizePx / _zoom));
         int srcLeft = cursor.X - srcSize / 2;
         int srcTop = cursor.Y - srcSize / 2;
+
+        // 소스 영역을 가상 화면 경계 안으로 clamp(화면 밖 캡처=검은 영역/자기상 방지).
+        int vL = GetSystemMetrics(SM_XVIRTUALSCREEN);
+        int vT = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        int vW = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+        int vH = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+        srcLeft = Math.Clamp(srcLeft, vL, Math.Max(vL, vL + vW - srcSize));
+        srcTop = Math.Clamp(srcTop, vT, Math.Max(vT, vT + vH - srcSize));
 
         // 창 위치: 커서에서 우하단으로 오프셋(소스 영역과 겹치지 않게).
         PositionWindowNear(cursor, srcSize);

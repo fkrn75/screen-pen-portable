@@ -51,6 +51,10 @@ public sealed class FadingInkService
     private double _holdSeconds = 3.0;
     private bool _enabled;
 
+    /// <summary>스트로크에 원본 알파(int)를 1회 저장해 두는 키. 알파를 in-place 로 깎아도
+    /// 원본을 잃지 않아, 재추가(undo)·디스에이블 시 원래 알파로 복원할 수 있다.</summary>
+    private static readonly Guid OrigAlphaKey = new("7E1B2C3D-4F50-6A7B-8C9D-0E1F2A3B4C5D");
+
     private readonly record struct TrackInfo(DateTime CreatedUtc, byte InitialAlpha);
 
     /// <param name="host">스트로크가 그려지는 InkCanvas.</param>
@@ -101,6 +105,9 @@ public sealed class FadingInkService
         _enabled = false;
         _host.Strokes.StrokesChanged -= OnStrokesChanged;
         _timer.Stop();
+        // 페이드로 흐려진 스트로크를 원본 알파로 복원(영구 반투명 고정 방지).
+        foreach (var kv in _tracked)
+            ApplyAlpha(kv.Key, kv.Value.InitialAlpha);
         _tracked.Clear();
     }
 
@@ -109,9 +116,22 @@ public sealed class FadingInkService
         // 새로 추가된 스트로크는 추적 시작(또는 재추가 시 시각 갱신 = 재카운트).
         foreach (Stroke s in e.Added)
         {
-            byte alpha = s.DrawingAttributes?.Color.A ?? (byte)255;
-            // 알파가 이미 0 인(어떤 이유로든) 스트로크는 즉시 제거 대상으로만 둔다.
-            _tracked[s] = new TrackInfo(DateTime.UtcNow, alpha == 0 ? (byte)255 : alpha);
+            // 원본 알파는 스트로크에 1회만 stash. 이미 있으면 그 값을 쓴다(부분 페이드 후
+            // undo로 재추가된 스트로크가 '깎인 알파'를 새 기준으로 삼아 점점 옅어지는 버그 방지).
+            byte orig;
+            if (s.ContainsPropertyData(OrigAlphaKey))
+            {
+                orig = (byte)(int)s.GetPropertyData(OrigAlphaKey);
+            }
+            else
+            {
+                byte cur = s.DrawingAttributes?.Color.A ?? (byte)255;
+                orig = cur == 0 ? (byte)255 : cur;
+                s.AddPropertyData(OrigAlphaKey, (int)orig);
+            }
+            _tracked[s] = new TrackInfo(DateTime.UtcNow, orig);
+            // 재추가(undo)로 흐려진 채 들어온 스트로크는 원본 알파로 되돌려 다시 또렷하게 시작.
+            ApplyAlpha(s, orig);
         }
 
         // 사용자가 지우개 등으로 지운 스트로크는 더 이상 추적하지 않는다.

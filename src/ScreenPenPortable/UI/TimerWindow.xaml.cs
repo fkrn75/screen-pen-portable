@@ -81,7 +81,11 @@ public partial class TimerWindow : Window
         Dispatcher.BeginInvoke(new Action(CenterOnPrimary), DispatcherPriority.Loaded);
     }
 
-    public void HideTimer() => Hide();
+    public void HideTimer()
+    {
+        StopBlink(); // 점멸 중 숨겨도 _blink 타이머가 계속 돌지 않도록 정리
+        Hide();
+    }
 
     // ── 카운트다운 ─────────────────────────────────────────────
     private void OnTick(object? sender, EventArgs e)
@@ -173,10 +177,25 @@ public partial class TimerWindow : Window
 
     private void CenterOnPrimary()
     {
-        double sw = SystemParameters.PrimaryScreenWidth;
-        double sh = SystemParameters.PrimaryScreenHeight;
-        Left = (sw - ActualWidth) / 2;
-        Top = (sh - ActualHeight) / 2;
+        // 주모니터의 절대 위치(가상화면 좌표)를 써야 한다. SystemParameters.PrimaryScreenWidth/Height
+        // 만으로 (0,0) 기준 중앙을 잡으면 주모니터가 가상화면 원점이 아닐 때(좌측에 보조모니터 →
+        // VirtualScreenLeft<0) 엉뚱한 모니터로 빗나간다.
+        var p = System.Windows.Forms.Screen.PrimaryScreen;
+        if (p == null)
+        {
+            Left = (SystemParameters.PrimaryScreenWidth - ActualWidth) / 2;
+            Top = (SystemParameters.PrimaryScreenHeight - ActualHeight) / 2;
+            return;
+        }
+
+        var b = p.Bounds; // 물리 px
+        var src = PresentationSource.FromVisual(this);
+        double sx = src?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+        double sy = src?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
+        double leftDip = b.Left / sx, topDip = b.Top / sy;
+        double wDip = b.Width / sx, hDip = b.Height / sy;
+        Left = leftDip + (wDip - ActualWidth) / 2;
+        Top = topDip + (hDip - ActualHeight) / 2;
     }
 
     private void OnDrag(object sender, MouseButtonEventArgs e)

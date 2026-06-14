@@ -188,6 +188,19 @@ public partial class ToolbarWindow : Window
         NumberButton.Background = tool == ToolKind.Number ? ActiveBrush : IdleBrush;
     }
 
+    /// <summary>굵기 슬라이더의 허용 범위를 바꾼다(예: 텍스트 도구는 폰트크기 8~200).
+    /// ThicknessChanged 재발생 안 함.</summary>
+    public void SetThicknessRange(double min, double max)
+    {
+        _suppressThicknessEvent = true;
+        try
+        {
+            ThicknessSlider.Minimum = min;
+            ThicknessSlider.Maximum = max;
+        }
+        finally { _suppressThicknessEvent = false; }
+    }
+
     /// <summary>슬라이더 값을 동기화한다(ThicknessChanged 재발생 안 함).</summary>
     public void SetThickness(double width)
     {

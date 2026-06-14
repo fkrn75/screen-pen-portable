@@ -38,6 +38,9 @@ public sealed class ObjectLayer
     // ── 번호 카운터(FR-22) ─────────────────────────────────────
     private int _nextNumber = 1;
 
+    // 편집 중인 텍스트의 강제 종료 훅(있을 때만). ClearAll/도구전환에서 호출.
+    private Action<bool>? _activeTextCommit;
+
     // ── 지휘자가 세팅하는 공개 상태 ────────────────────────────
     public ToolKind ActiveTool { get; set; } = ToolKind.Pen;
     public Color StrokeColor { get; set; } = Colors.Red;
@@ -55,6 +58,8 @@ public sealed class ObjectLayer
         _host.PreviewMouseLeftButtonDown += OnMouseDown;
         _host.PreviewMouseMove += OnMouseMove;
         _host.PreviewMouseLeftButtonUp += OnMouseUp;
+        // 안전망: EditingMode 변경 등으로 마우스 캡처가 풀리면(=OnMouseUp 미수신) 드래그 정리.
+        _host.LostMouseCapture += (_, _) => CancelActiveDrag();
     }
 
     // ── 도구 분류 헬퍼 ─────────────────────────────────────────
@@ -97,6 +102,32 @@ public sealed class ObjectLayer
 
     /// <summary>번호 도구(FR-22)의 카운터를 1로 리셋한다.</summary>
     public void ResetNumbering() => _nextNumber = 1;
+
+    /// <summary>번호 카운터 현재값. ClearAll의 undo 복원용. 1 미만은 1로 보정.</summary>
+    public int NextNumber
+    {
+        get => _nextNumber;
+        set => _nextNumber = value < 1 ? 1 : value;
+    }
+
+    /// <summary>진행 중인 도형 드래그를 취소한다(미리보기 제거·캡처 해제·상태 초기화).
+    /// 도구/통과 모드 전환·Esc·ClearAll 시 호출해 미리보기 잔류와 드래그 고착을 막는다.</summary>
+    public void CancelActiveDrag()
+    {
+        if (!_dragging) return;
+        _dragging = false;
+        if (_preview != null)
+        {
+            _overlay.Children.Remove(_preview);
+            _preview = null;
+        }
+        if (_host.IsMouseCaptured)
+            _host.ReleaseMouseCapture();
+    }
+
+    /// <summary>편집 중인 텍스트 입력을 강제로 끝낸다(commit=true 확정, false 취소). 편집 중이 아니면 무동작.
+    /// ClearAll/도구 전환 시 활성 TextBox가 지워진 화면에 부활하는 문제를 막는다.</summary>
+    public void EndActiveTextEditing(bool commit) => _activeTextCommit?.Invoke(commit);
 
     // ── 마우스 핸들러 ──────────────────────────────────────────
     private void OnMouseDown(object sender, MouseButtonEventArgs e)
@@ -361,6 +392,7 @@ public sealed class ObjectLayer
             if (finalized)
                 return;
             finalized = true;
+            _activeTextCommit = null; // 더 이상 활성 편집 아님
 
             // 이벤트 해제(재진입 방지).
             box.LostKeyboardFocus -= OnLostFocus;
@@ -405,6 +437,7 @@ public sealed class ObjectLayer
 
         box.LostKeyboardFocus += OnLostFocus;
         box.PreviewKeyDown += OnKey;
+        _activeTextCommit = CommitText; // 외부 강제 종료(ClearAll/도구전환)용 훅 등록
 
         _host.Children.Add(box);
         // 레이아웃 완료 후 포커스(즉시 포커스는 아직 비주얼 트리에 없을 수 있음).

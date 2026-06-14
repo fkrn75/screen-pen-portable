@@ -52,8 +52,12 @@ public static class ScreenshotService
 
         // 클립보드 복사: Bitmap → BitmapSource(WPF) 변환 후 WPF Clipboard에 설정.
         // (STA/UI 스레드에서 호출되어야 함 — remarks 참고.)
+        // copy:true 로 클립보드에 데이터를 '영속화'한다 → 무설치 앱이 곧 종료돼도
+        // 다른 앱에서 붙여넣기 가능(SetImage 의 기본 copy:false 는 종료 시 소실 위험).
         var source = ConvertToBitmapSource(bitmap);
-        System.Windows.Clipboard.SetImage(source);
+        var data = new System.Windows.DataObject();
+        data.SetImage(source);
+        System.Windows.Clipboard.SetDataObject(data, true);
 
         return fullPath;
     }
