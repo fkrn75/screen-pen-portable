@@ -141,6 +141,10 @@ public partial class MainWindow : Window
 
         _toolbar.SetQuickColors(_settings.QuickColors);
         _toolbar.Show();
+        // 저장된 위치가 현재 화면 밖이면(다른 모니터에 두고 저장 → 단일 모니터에서 실행 등)
+        // 보이는 모니터로 끌어온다. 레이아웃(ActualWidth 확정) 완료 후 보정.
+        _toolbar.Dispatcher.BeginInvoke(new Action(() => EnsureOnScreen(_toolbar)),
+            System.Windows.Threading.DispatcherPriority.Loaded);
 
         // 마지막 도구·상태 복원
         _tool = _settings.LastTool;
@@ -605,7 +609,49 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnDisplayChanged(object? sender, EventArgs e) => Dispatcher.Invoke(CoverVirtualScreen);
+    /// <summary>
+    /// 창이 연결된 어느 모니터 작업영역에도 충분히 보이지 않으면(예: 다른 모니터에 두고 저장한 위치를
+    /// 단일 모니터에서 불러온 경우, 또는 모니터를 분리한 경우) 주모니터 좌상단으로 끌어와 보이게 한다.
+    /// 좌표는 DIP, Screen 경계는 물리 px 이므로 이 창의 DPI 로 환산해 비교한다.
+    /// </summary>
+    private void EnsureOnScreen(Window w, double margin = 40)
+    {
+        double dw = w.ActualWidth > 0 ? w.ActualWidth : w.Width;
+        double dh = w.ActualHeight > 0 ? w.ActualHeight : w.Height;
+        if (double.IsNaN(dw) || double.IsNaN(dh) || dw <= 0 || dh <= 0) return;
+
+        DpiScale dpi = VisualTreeHelper.GetDpi(this);
+        double pxL = w.Left * dpi.DpiScaleX;
+        double pxT = w.Top * dpi.DpiScaleY;
+        double pxR = pxL + dw * dpi.DpiScaleX;
+        double pxB = pxT + dh * dpi.DpiScaleY;
+
+        // 어느 모니터든 충분히(잡을 수 있을 만큼) 겹치면 그대로 둔다 — 멀티모니터 배치 보존.
+        foreach (var s in System.Windows.Forms.Screen.AllScreens)
+        {
+            var wa = s.WorkingArea; // 물리 px
+            double ix = Math.Min(pxR, wa.Right) - Math.Max(pxL, wa.Left);
+            double iy = Math.Min(pxB, wa.Bottom) - Math.Max(pxT, wa.Top);
+            if (ix >= 80 && iy >= 30) return;
+        }
+
+        // 화면 밖 → 주모니터 작업영역 좌상단으로.
+        var p = System.Windows.Forms.Screen.PrimaryScreen;
+        if (p == null) { w.Left = margin; w.Top = margin; return; }
+        var pwa = p.WorkingArea;
+        w.Left = pwa.Left / dpi.DpiScaleX + margin;
+        w.Top = pwa.Top / dpi.DpiScaleY + margin;
+    }
+
+    private void OnDisplayChanged(object? sender, EventArgs e) => Dispatcher.Invoke(() =>
+    {
+        CoverVirtualScreen();
+        // 모니터 추가/제거로 창이 화면 밖에 남지 않도록 재보정.
+        if (_toolbar != null) EnsureOnScreen(_toolbar);
+        if (_timerWin?.IsVisible == true) EnsureOnScreen(_timerWin);
+        if (_haloSettings?.IsVisible == true) EnsureOnScreen(_haloSettings);
+        if (_magnifier?.IsVisible == true) EnsureOnScreen(_magnifier);
+    });
 
     private void OnClosed(object? sender, EventArgs e)
     {
